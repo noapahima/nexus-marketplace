@@ -4,69 +4,94 @@
     <meta charset="UTF-8">
     <title>Nexus Marketplace | Pro</title>
     <style>
-        :root { 
-            --bg: #0f172a; 
-            --card-bg: #1e293b; 
-            --text: #f8fafc; 
-            --primary: #8b5cf6; 
-            --border: #334155; 
-        }
-        body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 40px 20px; }
+        :root { --bg: #0f172a; --card-bg: #1e293b; --text: #f8fafc; --primary: #8b5cf6; --border: #334155; }
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg); color: var(--text); padding: 20px; }
         .container { max-width: 900px; margin: auto; }
-        h1 { text-align: center; margin-bottom: 30px; color: white; }
-        
-        .admin-section { background: var(--card-bg); padding: 25px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 40px; }
-        .form-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
-        input { padding: 12px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: white; }
-        
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); text-align: center; }
-        .card h3 { margin-top: 0; color: white; }
-        .price { font-size: 1.2rem; font-weight: bold; color: var(--primary); margin: 10px 0; }
-        
-        button { 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            padding: 12px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            width: 100%; 
-            margin-top: 20px; /* מרווח הייטקיסטי מושלם */
-        }
-        button:hover { filter: brightness(1.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .search-box { display: flex; gap: 10px; background: var(--card-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+        .section { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .card { background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid var(--border); text-align: center; }
+        .sold { opacity: 0.6; filter: grayscale(1); }
+        input { padding: 8px; background: #0f172a; border: 1px solid var(--border); color: white; border-radius: 4px; }
+        button { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>✨ Nexus Marketplace</h1>
-
-        <section class="admin-section">
-            <h3 style="margin-top:0">🛠️ Admin: יצירת מוצר</h3>
-            <div class="form-group">
-                <input id="name" placeholder="שם הקופון">
-                <input id="cost" type="number" placeholder="עלות בסיס">
-                <input id="margin" type="number" placeholder="אחוז רווח">
-                <input id="value" placeholder="קוד קופון">
+        <div class="header">
+            <h1>Nexus Marketplace ✨</h1>
+            <div class="search-box">
+                <input id="searchName" placeholder="חפש לפי שם...">
+                <button onclick="searchProduct()">🔍</button>
             </div>
-            <button onclick="addProduct()">הוסף מוצר למערכת</button>
+        </div>
+
+        <section class="section">
+            <h3>🛠️ הוספת קופון חדש</h3>
+            <div style="display:flex; gap:10px;">
+                <input id="name" placeholder="שם">
+                <input id="cost" type="number" placeholder="עלות">
+                <input id="margin" type="number" placeholder="רווח %">
+                <input id="value" placeholder="קוד">
+                <button onclick="addProduct()">הוסף</button>
+            </div>
         </section>
 
-        <div id="container" class="products-grid"></div>
+        <div id="container" class="grid"></div>
     </div>
 
     <script>
         async function loadProducts() {
             const res = await fetch('/api/v1/products');
             const data = await res.json();
+            render(data);
+        }
+
+        async function searchProduct() {
+            const name = document.getElementById('searchName').value;
+            if (!name) return loadProducts();
+            
+            const res = await fetch(`/api/v1/products/search/${name}`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                alert(`שגיאה: ${errorData.message || 'לא נמצאו תוצאות'}`);
+                return;
+            }
+            const data = await res.json();
+            if (data.length === 0) {
+                alert("לא נמצאו קופונים בשם הזה.");
+                document.getElementById('container').innerHTML = "<p style='text-align:center'>לא נמצאו תוצאות.</p>";
+            } else {
+                render(data);
+            }
+        }
+
+        function render(data) {
             const container = document.getElementById('container');
-            container.innerHTML = data.length ? data.map(p => `
-                <div class="card">
-                    <h3>${p.name}</h3>
-                    <div class="price">${p.price.toFixed(2)} ₪</div>
-                    <button onclick="purchase('${p.id}', ${p.price})">רכוש קופון</button>
-                </div>`).join('') : "<p style='text-align:center'>אין מוצרים זמינים כרגע.</p>";
+            container.innerHTML = data.map(p => `
+                <div class="card ${p.is_sold ? 'sold' : ''}">
+                    <h4>${p.name}</h4>
+                    <div style="font-weight:bold; color:var(--primary)">${p.price.toFixed(2)} ₪</div>
+                    <p>${p.is_sold ? '🔒 נרכש' : '✅ זמין'}</p>
+                    <button ${p.is_sold ? 'disabled' : ''} onclick="purchase('${p.id}', ${p.price})">רכוש</button>
+                </div>
+            `).join('');
+        }
+
+        async function purchase(id, price) {
+            const res = await fetch(`/api/v1/products/${id}/purchase`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer secret-token'},
+                body: JSON.stringify({ reseller_price: price }) 
+            });
+            const result = await res.json();
+            if (res.ok) {
+                alert("נרכש! קוד: " + result.value);
+            } else {
+                alert("שגיאה: " + result.message + " (" + result.error_code + ")");
+            }
+            loadProducts();
         }
 
         async function addProduct() {
@@ -79,17 +104,7 @@
             await fetch('/api/admin/products', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
             loadProducts();
         }
-
-        async function purchase(id, price) {
-            const res = await fetch(`/api/v1/products/${id}/purchase`, { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer secret-token'},
-                body: JSON.stringify({ reseller_price: price }) 
-            });
-            const result = await res.json();
-            alert(res.ok ? "נרכש בהצלחה! קוד: " + result.value : "שגיאה: " + result.message);
-            loadProducts();
-        }
+        
         loadProducts();
     </script>
 </body>
